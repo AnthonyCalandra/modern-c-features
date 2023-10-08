@@ -4,25 +4,33 @@
 
 A collection of descriptions along with examples for C language and library features.
 
+C17 contains defect reports and deprecations.
+
 C11 includes the following language features:
 - [generic selection](#generic-selection)
 - [alignof](#alignof)
+- [alignas](#alignas)
 - [static_assert](#static_assert)
 - [noreturn](#noreturn)
+- [unicode literals](#unicode-literals)
+- [anonymous structs and unions](#anonymous-structs-and-unions)
 
 C11 includes the following library features:
 - [bounds checking](#bounds-checking)
 - [timespec_get](#timespec_get)
+- [aligned_malloc](#aligned_malloc)
 - [char32_t](#char32_t)
 - [char16_t](#char16_t)
 - [&lt;stdatomic.h&gt;](#stdatomic.h)
-    - [atomic types](#atomic-types)
-    - [atomic flags](#atomic-flags)
-    - [atomic vars](#atomic-vars)
+    - [Atomic types](#atomic-types)
+    - [Atomic flags](#atomic-flags)
+    - [Atomic variables](#atomic-variables)
 - [&lt;threads.h&gt;](#threads.h)
-    - [threads](#threads)
-    - [mutexes](#mutexes)
-    - [condition variables](#condition-variables)
+    - [Threads](#threads)
+    - [Mutexes](#mutexes)
+    - [Condition variables](#condition-variables)
+- [quick exiting](#quick-exiting)
+- [exclusive mode file opening](#exclusive-mode-file-opening)
 
 ## C11 Language Features
 
@@ -43,7 +51,8 @@ Optionally, specifying `default` in a type list, will match any controlling expr
     long int: labs(expr), \
     float: fabs(expr), \
     /* ... */ \
-    /* Don't call abs for unsigned types, etc. */ default: expr \
+    /* Don't call abs for unsigned types, etc. */ \
+    default: expr \
 )
 
 printf("%d %li %f %d\n", abs(-123), abs(-123l), abs(-3.14f), abs(123u));
@@ -69,20 +78,88 @@ struct bar { char a; int b; };
 alignof(struct bar); // == 4
 ```
 
+`max_align_t` is a type whos alignment is as large as that of every scalar type.
+
+### alignas
+Sets the alignment of the given object using the `_Alignas` keyword, or `alignof` macro in `<stdalign.h>`.
+```c
+struct sse_t
+{
+    // Aligns `sse_data` on a 16 byte boundary.
+    alignas(16) float sse_data[4];
+};
+
+struct buffer
+{
+    // Align `buffer` to the same alignment boundary as an `int`.
+    alignas(int) char buf[sizeof(int)];
+};
+```
+
+`max_align_t` is a type whos alignment is as large as that of every scalar type.
+
 ### static_assert
 Compile-time assertion either using the `_Static_assert` keyword or the `static_assert` keyword macro defined in `assert.h`.
 ```c
-#define static_assert(e, m) _Static_assert(e, m)
 static_assert(sizeof(int) == sizeof(char), "`int` and `char` sizes do not match!");
 ```
 
 ### noreturn
-Specifies the function does not return. If the function returns, either by returning via `return` or reaching the end of the function body, behaviour is undefined. `noreturn` is a keyword macro defined in `<stdnoreturn.h>`.
+Specifies the function does not return. If the function returns, either by returning via `return` or reaching the end of the function body, its behaviour is undefined. `noreturn` is a keyword macro defined in `<stdnoreturn.h>`.
 ```c
-#define noreturn _Noreturn
-noreturn void foo() {
+noreturn void foo()
+{
     exit(0);
 }
+```
+
+### Unicode literals
+Create 16-bit or 32-bit Unicode string literals and character constants.
+```c
+char16_t c1 = u'貓';
+char32_t c2 = U'🍌';
+
+char16_t s1[] = u"a猫🍌"; // => [0x0061, 0x732B, 0xD83C, 0xDF4C, 0x0000]
+char32_t s2[] = U"a猫🍌"; // => [0x00000061, 0x0000732B, 0x0001F34C, 0x00000000]
+```
+
+See: [char32_t](#char32_t), [char16_t](#char16_t).
+
+### Anonymous structs and unions
+Allows unnamed (i.e. _anonymous_) structs or unions. Every member of an anonymous union is considered to be a member of the enclosing struct or union, keeping the layout intact. This applies recursively if the enclosing struct or union is also anonymous.
+```c
+struct v
+{
+   union // anonymous union
+   {
+       int a;
+       long b;
+   };
+   int c;
+} v;
+ 
+v.a = 1;
+v.b = 2;
+v.c = 3;
+
+printf("%d %ld %d", v.a, v.b, v.c); // prints "2 2 3"
+```
+```c
+union v
+{
+   struct // anonymous struct
+   {
+       int a;
+       long b;
+   };
+   int c;
+} v;
+ 
+v.a = 1;
+v.b = 2;
+v.c = 3;
+
+printf("%d %ld %d", v.a, v.b, v.c); // prints "3 2 3"
 ```
 
 ## C11 Library Features
@@ -94,9 +171,8 @@ Standard library functions with bounds-checked equivalents will be appended with
 
 Example of a custom constraint handler with `get_s`:
 ```c
-#define BUFFER_SIZE 3
-
-void custom_handler_s(const char *restrict msg, void *restrict ptr, errno_t error) {
+void custom_handler_s(const char* restrict msg, void* restrict ptr, errno_t error)
+{
     fprintf(stderr, "ERROR: %s\n", msg);
     abort();
 }
@@ -113,16 +189,29 @@ Populates a `struct timespec` object with the current time given a time base.
 ```c
 struct timespec ts;
 timespec_get(&ts, TIME_UTC);
-char buff[100];
+char buff[BUFFER_SIZE];
 strftime(buff, sizeof(buff), "%D %T", gmtime(&ts.tv_sec));
 printf("Current time: %s.%09ld UTC\n", buff, ts.tv_nsec);
+```
+
+### aligned_malloc
+Allocates bytes of storage whose alignment is specified.
+```c
+// Allocate at a 256-byte alignment.
+int* p = aligned_alloc(256, sizeof(int));
+// ...
+free(p);
 ```
 
 ### char32_t
 An unsigned integer type for holding 32-bit wide characters.
 
+See: [Unicode literals](#unicode-literals).
+
 ### char16_t
 An unsigned integer type for holding 16-bit wide characters.
+
+See: [Unicode literals](#unicode-literals).
 
 ### &lt;stdatomic.h&gt;
 
@@ -153,109 +242,217 @@ An `atomic_flag` is a lock-free (guaranteed), atomic boolean type representing a
 
 A simple spinlock implementation using `atomic_flag` as the "spin value":
 ```c
-struct spinlock {
+struct spinlock
+{
     // false - lock is free, true - lock is taken
-    volatile atomic_flag flag;
+    atomic_flag flag;
 };
 
-#define SPINLOCK_INIT { .flag = ATOMIC_FLAG_INIT }
-
-void acquire_spinlock(struct spinlock* lock) {
+void acquire_spinlock(struct spinlock* lock)
+{
     // `atomic_flag_test_and_set` returns the value of the flag.
     // We keep spinning until the lock is free (value of the flag is `false`).
     while (atomic_flag_test_and_set(&lock->flag) == true);
 }
 
-void release_spinlock(struct spinlock* lock) {
+void release_spinlock(struct spinlock* lock)
+{
     atomic_flag_clear(&lock->flag);
 }
 
-void* print_foo(void* l) {
-    struct spinlock* lock = (struct spinlock*) l;
+void print_foo(void* lk)
+{
+    struct spinlock* lock = (struct spinlock*) lk;
     acquire_spinlock(lock);
-    sleep(3);
     printf("foo\n");
     release_spinlock(lock);
-    return NULL;
 }
 
-void* print_bar(void* l) {
-    struct spinlock* lock = (struct spinlock*) l;
+void print_bar(void* lk)
+{
+    struct spinlock* lock = (struct spinlock*) lk;
     acquire_spinlock(lock);
     printf("bar\n");
     release_spinlock(lock);
-    return NULL;
 }
-
-pthread_t thread1, thread2;
-struct spinlock lock = SPINLOCK_INIT;
-pthread_create(&thread1, NULL, print_foo, (void*) &lock);
-pthread_create(&thread2, NULL, print_bar, (void*) &lock);
-pthread_join(thread1, NULL);
-pthread_join(thread2, NULL);
 ```
-Run the example until `thread1` is scheduled first. A three second pause will occur before `foo` is printed, then subsequently `bar` will print.
+```c
+struct spinlock lock = { .flag = ATOMIC_FLAG_INIT };
 
-#### Atomic vars
+// In Thread A:
+print_foo(&lock);
+// ==============
+// In Thread B:
+print_bar(&lock);
+```
+
+#### Atomic variables
 An _atomic variable_ is a variable which is declared as an _atomic type_. Atomic variables are meant to be used with the atomic operations which operate on the values held by these variables (except for the flag operations, ie. `atomic_flag_test_and_set`). Unlike `atomic_flag`, these are not guaranteed to be lock-free. Initialize atomic variables using the `ATOMIC_VAR_INIT` macro or `atomic_init` if it has been default-constructed already.
 
+The C11 Atomics library provides many additional atomic operations, memory fences, and allows specifying memory orderings for atomic operations.
 ```c
-struct spinlock {
+struct spinlock
+{
     // false - lock is free, true - lock is taken
-    volatile atomic_bool flag;
+    atomic_bool flag;
 };
 
-#define SPINLOCK_INIT { .flag = ATOMIC_VAR_INIT(false) }
-
-void acquire_spinlock(struct spinlock* lock) {
+void acquire_spinlock(struct spinlock* lock)
+{
     bool expected = false;
-    // `atomic_compare_exchange_weak` returns `false` when the value of the flag is not equal to `desired`.
-    // We keep spinning until the lock is free (value of the flag is `false`).
-    while (atomic_compare_exchange_weak(&lock->flag, &expected, true) == false) {
-        // `expected` will get set to the value of the flag for every call. Reset it since we always "expect" `false`.
+    // `atomic_compare_exchange_weak` returns `false` when the value of the
+    // flag is not equal to `desired`. We keep spinning until the lock is
+    // free (value of the flag is `false`).
+    while (atomic_compare_exchange_weak(&lock->flag, &expected, true) == false)
+    {
+        // `expected` will get set to the value of the flag for every call.
+        // Reset it since we always "expect" `false`.
         expected = false;
     }
 }
 
-void release_spinlock(struct spinlock* lock) {
+void release_spinlock(struct spinlock* lock)
+{
     atomic_store(&lock->flag, false);
 }
 
-void* print_foo(void* l) {
-    struct spinlock* lock = (struct spinlock*) l;
+void print_foo(void* lk)
+{
+    struct spinlock* lock = (struct spinlock*) lk;
     acquire_spinlock(lock);
-    sleep(3);
     printf("foo\n");
     release_spinlock(lock);
-    return NULL;
 }
 
-void* print_bar(void* l) {
-    struct spinlock* lock = (struct spinlock*) l;
+void print_bar(void* lk)
+{
+    struct spinlock* lock = (struct spinlock*) lk;
     acquire_spinlock(lock);
     printf("bar\n");
     release_spinlock(lock);
-    return NULL;
 }
+```
+```c
+struct spinlock lock;
+atomic_init(&lock.flag, false);
 
-pthread_t thread1, thread2;
-struct spinlock lock = SPINLOCK_INIT;
-pthread_create(&thread1, NULL, print_foo, (void*) &lock);
-pthread_create(&thread2, NULL, print_bar, (void*) &lock);
-pthread_join(thread1, NULL);
-pthread_join(thread2, NULL);
+// In Thread A:
+print_foo(&lock);
+// ==============
+// In Thread B:
+print_bar(&lock);
 ```
 
 ### &lt;threads.h&gt;
+C11 provides an OS-agnostic thread library supporting thread creation, mutexes, and condition variables. Threading library is located in `<threads.h>`. As of September 2023, it is poorly supported in most major compilers.
 
 #### Threads
-TODO
+Creates a thread and executes `print_n` in the new thread.
+```c
+void print_n(int* n)
+{
+    printf("%d\n", *n); // prints "123"
+}
+
+int n = 123;
+thrd_t thr;
+const int ret = thrd_create(
+    &thr, (thrd_start_t) &print_n, (void*) &n);
+thrd_join(thr, NULL);
+```
 
 #### Mutexes
-TODO
+C11 provides mutexes that support:
+* Timed locking - Given a `timespec` object, blocks the current thread until the mutex is locked or until it times out.
+* Recursive locking - Supports recursive locking (e.g. re-locking in recursive functions).
+Recursive timed locks can also be created, capturing both these operations.
+
+Specify which type of mutex to be created by passing any of `mtx_plain`, `mtx_timed`, `mtx_recursive`, or any combination of these to `mtx_init`'s `type` parameter.
+
+```c
+mtx_t mutex;
+const int ret = mtx_init(&mutex, mtx_plain);
+
+// In each thread: =============
+mtx_lock(&mutex);
+// Critical section
+mtx_unlock(&mutex);
+// ==============================
+
+mtx_destroy(&mutex);
+```
+
+Mutexes must be cleaned up by calling `mtx_destroy`.
 
 #### Condition variables
-TODO
+C11 provides condition variables as part of its concurrency library. Condition variables will block when waiting, support timed-waiting, and can be signalled and broadcasted. Note that spurious wakeups may occur.
+
+Condition variables must be cleaned up by calling `cnd_destroy`.
+```c
+// Assume remove_from_queue, add_to_queue, and
+// can_consume are defined.
+
+mtx_t mutex;
+// Initialize mutex...
+
+cnd_t cond;
+const int ret = cnd_init(&cond);
+
+// In a consumer thread: =====
+// Check in a loop due to spurious wakeups.
+while (!can_consume && cnd_wait(&cond, &mutex));
+remove_from_queue();
+// =========================
+
+// In a producer thread: =====
+add_to_queue();
+can_consume = true;
+cnd_signal(&cond);
+// ===========================
+
+cnd_destroy(&cond);
+```
+
+### Quick exiting
+Causes program termination to occur where clean termination is not possible or impractical; for example if cooperative cancellation between different threads is not possible or cancellation order is unachievable. This would have resulted in some threads trying to access static-duration objects while they are/have been destructed. 
+
+Quick exiting allows applications to register handlers to be called on exit while being able to access static duration objects (unlike `atexit`). Quick exiting does not execute static-duration object destructors in order to achieve this.
+
+Therefore, quick exiting can be thought of as being "in between" choosing to normally terminate a program, and abnormally terminating using `abort`.
+
+```c
+void f()
+{
+    // called first
+}
+ 
+void g()
+{
+    // called second
+}
+ 
+int main()
+{
+    at_quick_exit(f);
+    at_quick_exit(g);
+    quick_exit(0);
+}
+```
+
+### Exclusive mode file opening
+File access mode flag `x` can optionally be appended to `w` or `w+` specifiers. This flag forces the function to fail if the file exists, instead of overwriting it.
+```c
+FILE* fp = fopen(fname, "w+x");
+if (!fp)
+{
+    // File either exists or there was an error
+}
+else
+{
+    // File opened successfully.
+    fclose(fp);
+}
+```
 
 ## Author
 
