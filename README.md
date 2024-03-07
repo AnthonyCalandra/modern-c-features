@@ -4,6 +4,29 @@
 
 A collection of descriptions along with examples for C language and library features.
 
+C23 includes the following language features:
+- [auto](#auto)
+- [constexpr](#constexpr)
+- [decimal floating-point types](#decimal-floating-point-types)
+- [bit-width integers](#bit-width-integers)
+- [binary literals](#binary-literals)
+- [char8_t](#char8_t)
+- [utf-8 character literals](#utf-8-character-literals)
+- [unicode string literals](#unicode-string-literals)
+- [empty initializer](#empty-initializer)
+- [attributes](#attributes)
+- [new keywords (C23)](#new-keywords-c23)
+- [nullptr](#nullptr)
+- [`#embed`](#embed)
+- [enums with underlying type](#enums-with-underlying-type)
+- [typeof](#typeof)
+- [improved compatibility for tagged types](#improved-compatibility-for-tagged-types)
+
+C23 includes the following library features:
+- [floating-point formatting functions](#floating-point-formatting-functions)
+- [memset_explicit](#memset_explicit)
+- [`unreachable` macro](#unreachable-macro)
+
 C17 contains defect reports and deprecations.
 
 C11 includes the following language features:
@@ -12,7 +35,7 @@ C11 includes the following language features:
 - [alignas](#alignas)
 - [static_assert](#static_assert)
 - [noreturn](#noreturn)
-- [unicode literals](#unicode-literals)
+- [wide string literals](#wide-string-literals)
 - [anonymous structs and unions](#anonymous-structs-and-unions)
 
 C11 includes the following library features:
@@ -31,6 +54,224 @@ C11 includes the following library features:
     - [Condition variables](#condition-variables)
 - [quick exiting](#quick-exiting)
 - [exclusive mode file opening](#exclusive-mode-file-opening)
+
+## C23 Language Features
+
+### auto
+`auto`-typed variables are deduced by the compiler according to the type of their initializer.
+```c
+auto f = 123.0f; // `f` deduced to `float`
+
+#include <tgmath.h> // import the `cos` macro
+auto c = cos(x); // `c` deduced to a type depending on `x`
+
+#define div(X, Y)            \
+  _Generic((X)+(Y),          \
+           int: div,         \
+           long: ldiv,       \
+           long long: lldiv) \
+           ((X), (Y))
+auto z = div(x, y); // deduced to either `int`, `long`, `long long`
+```
+
+See: [generic selection](#generic-selection).
+
+### constexpr
+Scalars specified with `constexpr` are constants: they cannot be modified after being initialized, and must be fully initialized to a value that can be stored in the given type.
+
+The C `constexpr` specifier does not support functions, structures, unions, or arrays. Additionally, `constexpr` cannot be specified for pointer, atomic, or volatile-qualified types.
+
+```c
+constexpr size_t cache_line_size_bytes = 64;
+```
+
+### Decimal floating-point types
+Supports IEEE-754 Decimal floating-point types, `_Decimal32`, `_Decimal64`, `_Decimal128`. These floating point types are designed for base-10 floating point semantics.
+
+As of September 2023, compiler support is lacking for most features.
+```c
+_Decimal32 decsum = 0.0df;
+for (int i = 0; i < 10; i++)
+    decsum += 0.1df;
+printf("%.17Ha\n", decsum); // would print "1.0"
+
+float fsum = 0.0f;
+for (int i = 0; i < 10; i++)
+    fsum += 0.1f;
+printf("%.17f\n", fsum); // could print "1.00000011920928955"
+```
+
+### Bit-width integers
+The `_BitInt(N)` type allows specifying an `N` bit integer signed or unsigned type.
+```c
+_BitInt(4) sbi; // 4-bit width signed integer
+unsigned _BitInt(4) ubi; // 4-bit width unsigned integer
+```
+
+### Binary literals
+Binary literals provide a convenient way to represent a base-2 number. It is possible to separate digits with `'`.
+```c
+0b110 // == 6
+0b1111'1111 // == 255
+```
+
+### char8_t
+An unsigned char type for holding 8-bit wide characters.
+
+See: [char32_t](#char32_t), [char16_t](#char16_t), [unicode string literals](#unicode-string-literals).
+
+### UTF-8 character literals
+A character literal that begins with `u8` is a character literal of type `char8_t`. The value of a UTF-8 character literal is equal to its ISO 10646 code point value.
+```c
+char8_t x = u8'x';
+```
+
+See: [char8_t](#char8_t), [unicode string literals](#unicode-string-literals).
+
+### Unicode string literals
+String literals prefixed with `u8`, `u`, and `U` represent UTF-8, UTF-16, and UTF-32 strings respectively.
+
+See: [char32_t](#char32_t), [char16_t](#char16_t), [char8_t](#char8_t), [wide string literals](#wide-string-literals).
+
+### Empty initializer
+An object is empty-initialized if it is explicitly initialized using only a pair of braces. Arrays of unknown size cannot be initialized by an empty initializer. If an object is initialized using an empty initializer, default initialization occurs:
+* Pointers are initialized to `NULL`;
+* Decimal floating point types are initialized to positive zero;
+* Arithmetic types are initialized to zero;
+* Array types are initialized such that each slot is initialized according to these rules;
+* Aggregate types are initialized such that each member is initialized according to these rules;
+* Unions are initialized such that the first named member is initialized according to these rules.
+
+```c
+char c = {}; // == 0
+float f = {}; // == 0
+
+struct
+{
+    int x;
+    int y;
+} f = {}; // == { x: 0, y: 0}
+
+union
+{
+        char x;
+        double y;
+} u = {}; // u.x == 0
+
+int ia[5] = {}; // == [0, 0, 0, 0, 0]
+```
+
+### Attributes
+Attributes provide a universal syntax over `__attribute__(...)`, `__declspec`, etc. C++-styled attributes.
+
+C23 provides the following attributes:
+* `[[deprecated("reason")]]` - the entity declared with the attribute (such as a function), is deprecated. Specifying a reason is optional and can be ommitted.
+* `[[fallthrough]]` - indicates falling-through in a switch statement case is intentional.
+* `[[nodiscard("reason")]]` - encourages a compiler warning if the return value for the function declared with this attribute is discarded. Specifying a reason is optional and can be omitted.
+* `[[maybe_unused]]` - suppresses a compiler warning on the entity where this attribute is declared if it's unused (such as an unused function parameter), if applicable.
+* `[[noreturn]]` - indicates that the function this attribute is declared on does not return.
+* Compiler-specific directives - such as `[[clang::no_sanitize]]`.
+
+```c
+// `noreturn` attribute indicates `f` doesn't return.
+[[noreturn]] void f()
+{
+    exit(0);
+}
+```
+
+See: [noreturn](#noreturn).
+
+### New keywords (C23)
+New keywords replacing traditional macros definitions:
+* `true` and `false`
+* `thread_local`
+* `static_assert`
+
+See: [static_assert](#static_assert).
+
+### nullptr
+Introduces a new null pointer type designed to replace `NULL`. `nullptr` itself is of type `nullptr_t` which can be implicitly converted into pointer types and `bool`, and -- unlike `NULL` -- is not convertible to integral types.
+```c
+void foo(int);
+foo(NULL); // valid
+foo(nullptr); // error
+```
+
+### `#embed`
+`#embed` is a preprocessor directive to include text and binary resources directly into source code. This pattern is common in applications such as games that create custom fonts, load images into memory, etc. This allows the C preprocessor to replace external tools that convert resources to byte representations as C arrays.
+
+The `#embed` preprocessor directive also includes optional parameters including `suffix`, `prefix`, and `if_empty`.
+```c
+const uint8_t image_bytes[] = {
+#embed "image.bmp"
+};
+ 
+const char message_text[] = {
+#embed "message.txt" if_empty('M', 'i', 's', 's', 'i', 'n', 'g', '\n')
+,'\0'
+};
+```
+
+### Enums with underlying type
+C23 enums provide the ability to optionally specify the underlying type.
+```c
+enum e : unsigned short
+{
+    x // `x` is an `unsigned short`
+};
+```
+
+### typeof
+Gets the type of an expression, similar to `decltype` in C++. Also includes `typeof_unqual` which removes cv-qualifiers from the type.
+```c
+int a;
+const volatile int b;
+typeof(a) c; // has type of `int`
+typeof_unqual(b) d; // has type of `int
+```
+
+### Improved compatibility for tagged types
+Tagged types that have the same tag name and content become compatible not only across translation units but also inside the same translation unit. Also, redeclaration of the same tagged types is now allowed.
+```c
+// header
+#define PRODUCT(A ,B) struct prod { A a; B b; }
+#define SUM(A, B) struct sum { bool flag; union { A a; B b; }; }
+
+// source
+void foo(PRODUCT(int, SUM(float, double)) x)
+{
+    // ...
+}
+
+void bar(PRODUCT(int, SUM(float, double)) y)
+{
+    foo(y); // compatible type -- compiles
+}
+```
+
+## C23 Library Features
+
+### Floating-point formatting functions
+Converts floating-point values to byte strings. Convert `floats`, `doubles`, and `long double`s using `strfromf`, `strfromd`, and `strfroml` respectively.
+```c
+char buf[BUFFER_SIZE] = {};
+strfromf(&s, BUFFER_SIZE, "%f", 123.0f);
+```
+
+### memset_explicit
+Copies the given value into each of the first `count` characters of the object pointed to by `dest`. Unlike `memset`, this function cannot be optimized away by the compiler; therefore, this function is guaranteed to perform the memory write.
+```c
+char str[] = "foo";
+memset_explicit(str, 0, sizeof(str));
+```
+
+### `unreachable` macro
+Provides a standard macro for (historically) compiler-specific macros for denoting an unreachable area of the code.
+```c
+if (1 > 0) ...
+else unreachable();
+```
 
 ## C11 Language Features
 
@@ -104,6 +345,8 @@ Compile-time assertion either using the `_Static_assert` keyword or the `static_
 static_assert(sizeof(int) == sizeof(char), "`int` and `char` sizes do not match!");
 ```
 
+See: [new keywords (C23)](#new-keywords-c23).
+
 ### noreturn
 Specifies the function does not return. If the function returns, either by returning via `return` or reaching the end of the function body, its behaviour is undefined. `noreturn` is a keyword macro defined in `<stdnoreturn.h>`.
 ```c
@@ -113,8 +356,10 @@ noreturn void foo()
 }
 ```
 
-### Unicode literals
-Create 16-bit or 32-bit Unicode string literals and character constants.
+See: [attributes](#attributes).
+
+### Wide string literals
+Create 16-bit or 32-bit wide string literals and character constants.
 ```c
 char16_t c1 = u'貓';
 char32_t c2 = U'🍌';
@@ -123,7 +368,7 @@ char16_t s1[] = u"a猫🍌"; // => [0x0061, 0x732B, 0xD83C, 0xDF4C, 0x0000]
 char32_t s2[] = U"a猫🍌"; // => [0x00000061, 0x0000732B, 0x0001F34C, 0x00000000]
 ```
 
-See: [char32_t](#char32_t), [char16_t](#char16_t).
+See: [char32_t](#char32_t), [char16_t](#char16_t), [unicode string literals](#unicode-string-literals).
 
 ### Anonymous structs and unions
 Allows unnamed (i.e. _anonymous_) structs or unions. Every member of an anonymous union is considered to be a member of the enclosing struct or union, keeping the layout intact. This applies recursively if the enclosing struct or union is also anonymous.
@@ -206,12 +451,12 @@ free(p);
 ### char32_t
 An unsigned integer type for holding 32-bit wide characters.
 
-See: [Unicode literals](#unicode-literals).
+See: [wide string literals](#wide-string-literals), [char16_t](#char16_t), [unicode string literals](#unicode-string-literals).
 
 ### char16_t
 An unsigned integer type for holding 16-bit wide characters.
 
-See: [Unicode literals](#unicode-literals).
+See: [wide string literals](#wide-string-literals), [char32_t](#char32_t), [unicode string literals](#unicode-string-literals).
 
 ### &lt;stdatomic.h&gt;
 
