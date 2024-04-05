@@ -26,6 +26,10 @@ C23 includes the following library features:
 - [floating-point formatting functions](#floating-point-formatting-functions)
 - [memset_explicit](#memset_explicit)
 - [`unreachable` macro](#unreachable-macro)
+- [`memccpy`](#memccpy)
+- [`strdup` and `strndup`](#strdup-and-strndup)
+- [`gmtime_r` and `localtime_r`](#gmtime_r-and-localtime_r)
+- [`timespec_getres`](#timespec_getres)
 
 C17 contains defect reports and deprecations.
 
@@ -256,7 +260,7 @@ void bar(PRODUCT(int, SUM(float, double)) y)
 Converts floating-point values to byte strings. Convert `floats`, `doubles`, and `long double`s using `strfromf`, `strfromd`, and `strfroml` respectively.
 ```c
 char buf[BUFFER_SIZE] = {};
-strfromf(&s, BUFFER_SIZE, "%f", 123.0f);
+strfromf(&buf, BUFFER_SIZE, "%f", 123.0f);
 ```
 
 ### memset_explicit
@@ -271,6 +275,50 @@ Provides a standard macro for (historically) compiler-specific macros for denoti
 ```c
 if (1 > 0) ...
 else unreachable();
+```
+
+### `memccpy`
+Copies bytes from source to destination stopping after either the terminating byte is found (and also copied) or the given number of bytes is copied.
+```c
+// Assume `src` is populated elsewhere.
+char dest[MAX_LEN] = {};
+// Copy to `dest` until either the NUL terminator (zero) byte
+// is found or we are at `MAX_LEN - 1` bytes copied.
+memccpy(dest, src, 0, MAX_LEN - 1);
+```
+
+### `strdup` and `strndup`
+These functions duplicate a given string by allocating a buffer and copying. The returned string is always null-terminated. Be sure to free the memory returned by thhese functions after use.
+```c
+const char* src = "foobarbaz";
+
+char* src2 = strdup(src); // "foobarbaz"
+free(src2);
+
+char* src3 = strndup(src, 3); // "rep"
+free(src3);
+```
+
+### `gmtime_r` and `localtime_r`
+Works as `gmtime` and `localtime` does but uses a given storage buffer for the result. Returns a `NULL` pointer on error.
+```c
+time_t t = time(NULL);
+
+struct tm buf;
+struct* tm ret = gmtime_r(&t, &buf);
+// ...
+struct* tm ret2 = localtime_r(&t, &buf);
+```
+
+### `timespec_getres`
+Stores the resolution of time provided by the given base. Returns zero on failure.
+```c
+struct timespec ts;
+const int res = timespec_getres(&ts, TIME_UTC);
+if (res == TIME_UTC)
+{
+    // ...
+}
 ```
 
 ## C11 Language Features
