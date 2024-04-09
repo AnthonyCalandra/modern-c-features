@@ -295,7 +295,7 @@ const char* src = "foobarbaz";
 char* src2 = strdup(src); // "foobarbaz"
 free(src2);
 
-char* src3 = strndup(src, 3); // "rep"
+char* src3 = strndup(src, 3); // "foo"
 free(src3);
 ```
 
