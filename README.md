@@ -24,6 +24,7 @@ C23 includes the following language features:
 
 C23 includes the following library features:
 - [floating-point formatting functions](#floating-point-formatting-functions)
+- [`fscanf` and `fprintf` format specifiers](#fscanf-and-fprintf-format-specifiers)
 - [memset_explicit](#memset_explicit)
 - [`unreachable` macro](#unreachable-macro)
 - [`memccpy`](#memccpy)
@@ -261,6 +262,18 @@ Converts floating-point values to byte strings. Convert `floats`, `doubles`, and
 ```c
 char buf[BUFFER_SIZE] = {};
 strfromf(&buf, BUFFER_SIZE, "%f", 123.0f);
+```
+
+### `fscanf` and `fprintf` format specifiers
+Introduces format specifiers and modifiers for `fscanf()` and `fprintf()` function families:
+* `%wN`, `%wfN` modifiers for `uintN_t`, `intN_t`, `uint_fastN_t`, and `int_fastN_t` types.
+* `H`, `D`, `DD` modifiers for `_Decimal32`, `_Decimal64`, and `_Decimal128` types.
+* `b`, `B` specifiers for converting `unsigned int` to unsigned binary.
+
+```c
+uint64_t num = 1234;
+printf("A uint64_t number: %w64u\n");
+printf("A uint64_t number in binary: %w64b\n");
 ```
 
 ### memset_explicit
